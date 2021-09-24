@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font, colorchooser, messagebox
+
+from speech_recognition import RequestError, WaitTimeoutError, UnknownValueError
+
 import NotePadFileController
 import NotePadDBController
 import traceback
@@ -11,7 +14,7 @@ import os
 class Notepad:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.geometry('1200x800')
+        self.root.geometry('1200x700')
         self.root.title('SmartNotepad')
         self.root.wm_iconbitmap('icons/icon.ico')
 
@@ -326,7 +329,7 @@ class Notepad:
     def replace(self):
         word=self.find_input.get()
         replace_text=self.replace_input.get()
-        if len(word.trim()==0 or len(replace_text.trim()==0)):
+        if len(word.strip())==0 or len(replace_text.strip())==0:
             return
         content=self.text_editor.get(1.0,tk.END)
         new_content=content.replace(word,replace_text)
@@ -370,43 +373,116 @@ class Notepad:
         self.find_dialogue.mainloop()
 
     def say_something(self):
-        pass
+        try:
+            self.takeAudio=self.file_controller.take_query()
+            print(self.takeAudio)
+            if self.takeAudio=="new file":
+                self.new_file()
+            if self.takeAudio=="open file":
+                self.open_file()
+            if self.takeAudio=="save file":
+                self.save_file()
+            if self.takeAudio=="save file as":
+                self.save_as()
+            if self.takeAudio=="exit":
+                self.exit_func()
+            if self.takeAudio=="bold":
+                self.change_bold()
+            if self.takeAudio=="Italic":
+                self.change_italic()
+            if self.takeAudio=="underline":
+                self.change_underline()
+            if self.takeAudio=="left":
+                self.align_left()
+            if self.takeAudio=="right":
+                self.align_right()
+            if self.takeAudio=="centre":
+                self.align_center()
+        except RequestError as reque:
+            messagebox.showerror("No internet","Please check your internet connection")
+        except WaitTimeoutError as waiter:
+            messagebox.showerror("Time over", "Time limit exceeded")
+        except UnknownValueError as unkwe:
+            messagebox.showerror("Non translatable text", "Speech unrecognizable!")
 
     def align_left(self):
-        pass
+        text_content=self.text_editor.get(1.0,'end')
+        self.text_editor.tag_config('left',justify=tk.LEFT)
+        self.text_editor.delete(1.0,tk.END)
+        self.text_editor.insert(tk.INSERT,text_content,'left')
+
 
     def align_center(self):
-        pass
+        text_content = self.text_editor.get(1.0, 'end')
+        self.text_editor.tag_config('center', justify=tk.CENTER)
+        self.text_editor.delete(1.0, tk.END)
+        self.text_editor.insert(tk.INSERT, text_content, 'center')
 
     def align_right(self):
-        pass
+        text_content = self.text_editor.get(1.0, 'end')
+        self.text_editor.tag_config('right', justify=tk.RIGHT)
+        self.text_editor.delete(1.0, tk.END)
+        self.text_editor.insert(tk.INSERT, text_content, 'right')
 
     def change_font_color(self):
-        pass
+        color_var=tk.colorchooser.askcolor()
+        # print(color_var)
+        self.text_editor.config(fg=color_var[1])
 
     def hide_toolbar(self):
-        pass
+        if self.show_toolbar:
+            self.tool_bar.pack_forget()
+            self.show_toolbar=False
+        else:
+            self.text_editor.pack_forget()
+            self.status_bar.pack_forget()
+            self.tool_bar.pack(side=tk.TOP,fill=tk.X)
+            self.text_editor.pack(fill=tk.BOTH,expand=True)
+            self.status_bar.pack(side=tk.BOTTOM)
+            self.show_toolbar=True
 
     def hide_statusbar(self):
-        pass
+        if self.show_statusbar:
+            self.status_bar.pack_forget()
+            self.show_statusbar = False
+        else:
+            self.status_bar.pack(side=tk.BOTTOM)
+            self.show_statusbar = True
 
     def change_theme(self):
-        pass
+        self.chosen_theme=self.theme_choice.get()
+        self.color_tuple=self.color_dict.get(self.chosen_theme)
+        fg_color,bg_color=self.color_tuple
+        self.text_editor.config(background=bg_color,foreground=fg_color)
 
     def change_font(self, event=None):
-        pass
+        self.current_font_family=self.font_family.get()
+        self.text_editor.configure(font=(self.current_font_family,self.current_font_size))
 
     def change_fontsize(self, event=None):
-        pass
+        self.current_font_size = self.font_size.get()
+        self.text_editor.configure(font=(self.current_font_family, self.current_font_size))
 
     def change_bold(self):
-        pass
+        self.text_property=tk.font.Font(font=self.text_editor['font'])
+        if self.text_property.actual()['weight']=='normal':
+            self.text_editor.configure(font=(self.current_font_family, self.current_font_size,'bold'))
+        if self.text_property.actual()['weight'] == 'bold':
+            self.text_editor.configure(font=(self.current_font_family, self.current_font_size, 'normal'))
 
     def change_italic(self):
-        pass
+        self.text_property = tk.font.Font(font=self.text_editor['font'])
+        if self.text_property.actual()['slant'] == 'roman':
+            self.text_editor.configure(font=(self.current_font_family, self.current_font_size, 'italic'))
+        if self.text_property.actual()['slant'] == 'italic':
+            self.text_editor.configure(font=(self.current_font_family, self.current_font_size, 'roman'))
 
     def change_underline(self):
-        pass
+        self.text_property = tk.font.Font(font=self.text_editor['font'])
+        if self.text_property.actual()['underline']==0:
+            self.text_editor.configure(font=(self.current_font_family, self.current_font_size, 'underline'))
+        if self.text_property.actual()['underline']==1:
+            self.text_editor.configure(font=(self.current_font_family, self.current_font_size, 'normal'))
 
     def secure_file(self, event=None):
         pass
