@@ -15,7 +15,7 @@ class File_Model:
             try:
                 ind=self.key.index(ch)
                 ind=(ind+self.offset)%62
-                result=self.key[ind]
+                result+=self.key[ind]
             except ValueError:
                 result+=ch
         return result
@@ -26,9 +26,10 @@ class File_Model:
             try:
                 ind = self.key.index(ch)
                 ind = (ind - self.offset) % 62
-                result = self.key[ind]
+                result += self.key[ind]
             except ValueError:
                 result += ch
+        # print(result)
         return result
 
     def open_file(self):
@@ -39,8 +40,9 @@ class File_Model:
 
     def save_as(self, msg):
         encrypted_text = self.encrypt(msg)
-        self.url = asksaveasfile(mode="w", defaultextension=".ntxt",  filetypes=[("All files","*.*"), ("Text Documents","*.*")])
+        self.url = asksaveasfile(mode="w", defaultextension=".ntxt", filetypes=[("All files","*.*"), ("Text Documents","*.*")])
         print(type(self.url))
+        print(self.url)
         self.url.write(encrypted_text)
         filepath = self.url.name
         self.url.close()
@@ -76,4 +78,4 @@ class File_Model:
 
 obj = File_Model()
 # plaintext = "BHOPAL"
-# obj.save_as(plaintext)
+# obj.decrypt(plaintext)

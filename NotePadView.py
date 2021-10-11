@@ -1,14 +1,16 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font, colorchooser, messagebox
-
 from speech_recognition import RequestError, WaitTimeoutError, UnknownValueError
-
 import NotePadFileController
 import NotePadDBController
 import traceback
 from tkinter import filedialog, simpledialog
 import os
+import threading
+import time
+from datetime import datetime
+
 
 
 class Notepad:
@@ -152,11 +154,47 @@ class Notepad:
         self.mike_btn.configure(command=self.say_something)
 
     def set_status_bar(self):
-        self.status_bar = ttk.Label(self.root, text='Status Bar')
-        self.status_bar.pack(side=tk.BOTTOM)
+        self.status_bar_root=ttk.Label(self.root)
+        self.status_bar_root.pack(side=tk.BOTTOM)
+        self.status_bar = ttk.Label(self.status_bar_root, text='Status Bar')
+        self.status_bar.pack(side=tk.LEFT)
+        self.curr_time=ttk.Label(self.status_bar_root, text='Current time:')
+        self.curr_time.pack(side=tk.LEFT,padx=50)
+        self.Total_time=ttk.Label(self.status_bar_root, text='Total time:')
+        self.Total_time.pack(side=tk.LEFT)
         self.count = 0
         self.show_statusbar = tk.BooleanVar()
         self.show_statusbar.set(True)
+        t1=threading.Thread(target=self.set_time)
+        t2=threading.Thread(target=self.total_time)
+        t1.start()
+        t2.start()
+
+    def set_time(self):
+        while(True):
+            now = datetime.now()
+            current_time = now.strftime("%H:%M:%S")
+            # print("Current Time =", current_time)
+            self.curr_time.config(text=f"Current Time: {current_time}")
+            time.sleep(1)
+
+    def total_time(self):
+        hours=0
+        minutes=0
+        seconds=0
+        while(True):
+            if seconds<59:
+                seconds+=1
+            elif minutes<59 and seconds==59:
+                minutes+=1
+                seconds=0
+            elif hours<23 and seconds==59 and minutes==59:
+                hours+=1
+                minutes=0
+                seconds=0
+            # print("time:",hours,minutes,seconds)
+            self.Total_time.config(text=f"Total Time: {hours}:{minutes}:{seconds}")
+            time.sleep(1)
 
     def set_file_menu_event_bindings(self):
         self.root.bind("<Control-n>", self.new_file)
@@ -237,7 +275,7 @@ class Notepad:
     def check_db_status(self):
         self.db_status = self.db_controller.get_db_status()
         if self.db_status:
-            self.file = self.db_controller.load_files_from_db()
+            self.files = self.db_controller.load_files_from_db()
         else:
             messagebox.showerror("Database Error", "Cannot connect to the DB")
             print(traceback.format_exc())
@@ -256,6 +294,7 @@ class Notepad:
             messagebox.showinfo("Thank you", "Have a good day")
             self.db_controller.close_notepad()
             self.root.destroy()
+            exit(0)
 
     def save_file(self, event=None):
         try:
@@ -376,28 +415,38 @@ class Notepad:
         try:
             self.takeAudio=self.file_controller.take_query()
             print(self.takeAudio)
-            if self.takeAudio=="new file":
+            if self.takeAudio =="":
+                messagebox.showinfo("say again","speech not recognized!")
+            elif self.takeAudio.lower()=="hey mojo new file":
                 self.new_file()
-            if self.takeAudio=="open file":
+            elif self.takeAudio.lower()=="hey mojo open file":
                 self.open_file()
-            if self.takeAudio=="save file":
+            elif self.takeAudio.lower()=="hey mojo save file":
                 self.save_file()
-            if self.takeAudio=="save file as":
+            elif self.takeAudio.lower()=="hey mojo save as file":
                 self.save_as()
-            if self.takeAudio=="exit":
+            elif self.takeAudio.lower()=="hey mojo close app":
                 self.exit_func()
-            if self.takeAudio=="bold":
+            elif self.takeAudio.lower()=="hey mojo text bold":
                 self.change_bold()
-            if self.takeAudio=="Italic":
+            elif self.takeAudio.lower()=="hey mojo text italic":
                 self.change_italic()
-            if self.takeAudio=="underline":
+            elif self.takeAudio.lower()=="hey mojo text underline":
                 self.change_underline()
-            if self.takeAudio=="left":
+            elif self.takeAudio.lower()=="hey mojo align left":
                 self.align_left()
-            if self.takeAudio=="right":
+            elif self.takeAudio.lower()=="hey mojo align right":
                 self.align_right()
-            if self.takeAudio=="centre":
+            elif self.takeAudio.lower()=="hey mojo align centre":
                 self.align_center()
+            elif self.takeAudio.lower() == "hey mojo search":
+                self.find_func()
+            elif self.takeAudio.lower() == "hey mojo hide statusbar":
+                self.hide_statusbar()
+            elif self.takeAudio.lower() == "hey mojo hide toolbar":
+                self.hide_toolbar()
+            else:
+                messagebox.showerror("Error","Sorry! Your audio not match")
         except RequestError as reque:
             messagebox.showerror("No internet","Please check your internet connection")
         except WaitTimeoutError as waiter:
@@ -484,23 +533,137 @@ class Notepad:
         if self.text_property.actual()['underline']==1:
             self.text_editor.configure(font=(self.current_font_family, self.current_font_size, 'normal'))
 
+                        #---------- DATA BASE COE------------
     def secure_file(self, event=None):
-        pass
+        if self.db_status:
+            self.file_dialog=tk.Toplevel()
+            self.file_dialog.geometry("450x400+500+200")
+            self.file_dialog.title("Secure Files")
+            self.file_dialog.resizable(0,0)
+
+            ##frame
+            self.file_frame=ttk.LabelFrame(self.file_dialog,text="Add Source File")
+            self.file_frame.pack(pady=20)
+
+            ##Labels
+            self.text_file_owner_label=ttk.Label(self.file_frame,text="File Owner")
+            self.text_file_pwd_lebel=ttk.Label(self.file_frame,text="File Password")
+            self.total_file=self.db_controller.get_file_count()
+            self.total_file_lebel=ttk.Label(self.file_frame,text=f"Total Files: {self.total_file}")
+
+            ##Entry
+            self.file_owner_input=ttk.Entry(self.file_frame,width=30)
+            self.file_pwd_input=ttk.Entry(self.file_frame,width=30)
+
+            ##button
+            self.file_add_button=ttk.Button(self.file_frame,text='Add File',command=self.add_file)
+            self.file_open_button = ttk.Button(self.file_frame, text='Open File', command=self.open_secure_file)
+            self.file_remove_button = ttk.Button(self.file_frame, text='Remove File', command=self.remove_secure_file)
+
+            ##label grid
+            self.text_file_owner_label.grid(row=0,column=0,padx=4,pady=4)
+            self.text_file_pwd_lebel.grid(row=1, column=0, padx=4, pady=4)
+            self.total_file_lebel.grid(row=3, column=0, padx=4, pady=4)
+
+            ## entry grid
+            self.file_owner_input.grid(row=0, column=1, padx=4, pady=4)
+            self.file_pwd_input.grid(row=1, column=1, padx=4, pady=4)
+
+            ## button grid
+            self.file_add_button.grid(row=2, column=0, padx=8, pady=4)
+            self.file_open_button.grid(row=2, column=1, padx=8, pady=4)
+            self.file_remove_button.grid(row=2, column=2, padx=8, pady=4)
+
+            ##scrollable list
+            scrollbar = ttk.Scrollbar(self.file_dialog, orient="vertical")
+            scrollbar.pack(side='right', fill='both')
+            self.fileList = tk.Listbox(self.file_dialog)
+            # self.fileList.place(relx=0.0, rely=0.30, relheight=1, relwidth=0.972)
+            self.fileList.pack(fill='both', expand=True)
+
+            self.fileList.configure(background="white")
+            self.fileList.configure(disabledforeground="#a3a3a3")
+            self.fileList.configure(font="Lato")
+            self.fileList.configure(foreground="black")
+            self.fileList.configure(highlightbackground="#d9d9d9")
+            self.fileList.configure(highlightcolor="#d9d9d9")
+            self.fileList.configure(selectbackground="#c4c4c4")
+
+            self.fileList.configure(selectforeground="black")
+            self.fileList.configure(width=10)
+            self.fileList.configure(yscrollcommand=scrollbar.set)
+            scrollbar.configure(command=self.fileList.yview)
+
+            self.fileList.bind("<Double-1>", self.list_double_click)
+
+            ##load file from DB
+
+            for values in self.files.keys():
+                self.f_name = values
+                file_owner = self.files.get(self.f_name)[1]
+                full_file = self.f_name + "      " + "[ Owner: " + file_owner + " ]"
+                self.fileList.insert('end', full_file)
+            self.file_dialog.mainloop()
+        else:
+            messagebox.showerror("Database Error", "Please Connect with the database")
+
 
     def list_double_click(self, e):
-        pass
+        self.open_secure_file()
 
     def open_secure_file(self):
-        pass
+        self.sel_file_index_tuple = self.fileList.curselection()
+        if len(self.sel_file_index_tuple) != 0:
+            self.full_file_name = self.fileList.get(self.sel_file_index_tuple[0])
+            self.file_pos = self.full_file_name.find(' ')
+            self.file_name = self.full_file_name[:self.file_pos]
+            self.file_path = self.db_controller.get_file_path(self.file_name)
+            msg, base = self.file_controller.read_file(self.file_path)
+            if self.db_controller.is_file_secure(base):
+                pwd = self.get_file_pwd()
+            if pwd == self.db_controller.get_file_pwd(base):
+                self.text_editor.delete(1.0, tk.END)
+                self.text_editor.insert(1.0, msg)
+                self.root.title(base)
+            else:
+                messagebox.showerror('Wrong Password', "Wrong Password!, Please Try Again !!")
+
+        else:
+            messagebox.showerror("Error!", "Please select a file")
 
     def remove_secure_file(self):
-        pass
+        self.sel_file_index_tuple = self.fileList.curselection()
+        if len(self.sel_file_index_tuple) != 0:
+            self.full_file_name = self.fileList.get(self.sel_file_index_tuple[0])
+            self.file_pos = self.full_file_name.find(' ')
+            self.file_name = self.full_file_name[:self.file_pos]
+            self.db_controller.remove_file(self.file_name)
+            self.full_file_name = self.fileList.delete(self.sel_file_index_tuple[0])
+            messagebox.showinfo("Success!", "file removed from personal files")
+        else:
+            messagebox.showerror("Error!", "Please select a fil!e")
+
 
     def add_file(self):
-        pass
+        if self.file_owner_input.get() and self.file_pwd_input.get() != "":
+            self.file_owner = self.file_owner_input.get()
+            self.file_pwd = self.file_pwd_input.get()
+            self.file_path = filedialog.askopenfilename(title="select file",filetypes=[("Text Documents", "*.*")])
+            self.file_name = os.path.basename(self.file_path)
+            result = self.db_controller.add_file(self.file_name, self.file_path, self.file_owner, self.file_pwd)
 
-    def is_file_secure(self, file_name):
-        pass
+            if result.find('already') != -1:
+                messagebox.showwarning("Error!", result)
+            elif result =="":
+                messagebox.showinfo("Error!", "something went wrong!")
+            else:
+                messagebox.showinfo("Success!", result)
+        else:
+             messagebox.showerror("Error!", "Please First Enter file owner name and password ")
+
+
+    def is_secure_file(self, file_name):
+        return self.db_controller.is_file_secure(file_name)
 
     def get_file_pwd(self):
         access_pwd=simpledialog.askstring("Password","Enter file password:",show='*')

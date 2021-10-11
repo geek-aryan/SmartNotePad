@@ -38,7 +38,8 @@ class Db_Model:
         self.cur.execute("select max(file_id) from mysecurefiles")
         last_file_id=self.cur.fetchone()
         next_file_id=1
-        if last_file_id is not None:
+        print("last file id: ",last_file_id)
+        if last_file_id[0] is not None:
             next_file_id=last_file_id[0]+1
         self.cur.execute("insert into mysecurefiles values(:1,:2,:3,:4,:5)",(next_file_id,file_name,file_path,file_owner,file_pwd))
         self.conn.commit()
